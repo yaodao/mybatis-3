@@ -15,8 +15,12 @@
  */
 package org.apache.ibatis.io;
 
+import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Method;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.util.List;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -66,6 +70,16 @@ class VFSTest {
   void getExistMethod() {
     Method method = VFS.getMethod(VFS.class, "list", String.class);
     Assertions.assertNotNull(method);
+  }
+
+  @Test
+  void getList() throws IOException {
+//    File file = new File("/D:/repository/cglib/cglib/3.1/cglib-3.1.jar");
+//    URL jarUrl = file.toURI().toURL();
+    URL jarUrl = new URL("jar:file:/D:/repository/cglib/cglib/3.1/cglib-3.1.jar!/");
+    DefaultVFS vfs = new DefaultVFS();
+    List<String> arr = vfs.list(jarUrl,"/net/sf/cglib/beans/");
+    System.out.println(arr);
   }
 
   @Test

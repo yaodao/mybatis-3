@@ -52,20 +52,28 @@ public abstract class BaseTypeHandler<T> extends TypeReference<T> implements Typ
   }
 
   @Override
+  // 将ps的第i个位置设置为parameter
+  // （根据parameter是否为空，调用不同的方法）
   public void setParameter(PreparedStatement ps, int i, T parameter, JdbcType jdbcType) throws SQLException {
+    // 若parameter为空，表示将ps第i位置的参数设置为空
     if (parameter == null) {
+      // 若parameter为空，则jdbcType不能为空，否则抛出异常（因为数据库中不同类型的字段，NULL不同）
       if (jdbcType == null) {
         throw new TypeException("JDBC requires that the JdbcType must be specified for all nullable parameters.");
       }
       try {
+        // 将ps第i位置设置为空
         ps.setNull(i, jdbcType.TYPE_CODE);
       } catch (SQLException e) {
         throw new TypeException("Error setting null for parameter #" + i + " with JdbcType " + jdbcType + " . "
               + "Try setting a different JdbcType for this parameter or a different jdbcTypeForNull configuration property. "
               + "Cause: " + e, e);
       }
-    } else {
+    }
+    // parameter不空
+    else {
       try {
+        // 将parameter设置到ps的第i个位置
         setNonNullParameter(ps, i, parameter, jdbcType);
       } catch (Exception e) {
         throw new TypeException("Error setting non null for parameter #" + i + " with JdbcType " + jdbcType + " . "
@@ -76,6 +84,7 @@ public abstract class BaseTypeHandler<T> extends TypeReference<T> implements Typ
   }
 
   @Override
+  // 从rs中取当前行columnName字段的值，返回值可以为null
   public T getResult(ResultSet rs, String columnName) throws SQLException {
     try {
       return getNullableResult(rs, columnName);
@@ -85,6 +94,7 @@ public abstract class BaseTypeHandler<T> extends TypeReference<T> implements Typ
   }
 
   @Override
+  // 从rs中取当前行，第columnIndex个字段的值，返回值可以为null
   public T getResult(ResultSet rs, int columnIndex) throws SQLException {
     try {
       return getNullableResult(rs, columnIndex);

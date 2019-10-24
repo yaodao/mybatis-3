@@ -23,6 +23,7 @@ import java.net.URL;
  *
  * @author Clinton Begin
  */
+// 该类实现 使用类加载器在classpath下找资源文件，并将资源文件转换成URL或者InputStream，供外部的代码使用。
 public class ClassLoaderWrapper {
 
   ClassLoader defaultClassLoader;
@@ -30,6 +31,7 @@ public class ClassLoaderWrapper {
 
   ClassLoaderWrapper() {
     try {
+      // 获取AppClassLoader（系统类装载器）
       systemClassLoader = ClassLoader.getSystemClassLoader();
     } catch (SecurityException ignored) {
       // AccessControlException on Google App Engine
@@ -37,11 +39,16 @@ public class ClassLoaderWrapper {
   }
 
   /**
+   * 下面的方法中，处理的资源文件，都是在classpath下的资源文件。
+   */
+
+  /**
    * Get a resource as a URL using the current class path
    *
    * @param resource - the resource to locate
    * @return the resource or null
    */
+  // 将文件路径转成URL对象，并返回该URL对象
   public URL getResourceAsURL(String resource) {
     return getResourceAsURL(resource, getClassLoaders(null));
   }
@@ -53,6 +60,7 @@ public class ClassLoaderWrapper {
    * @param classLoader - the first classloader to try
    * @return the stream or null
    */
+  // 将文件路径转成URL对象，并返回该URL对象
   public URL getResourceAsURL(String resource, ClassLoader classLoader) {
     return getResourceAsURL(resource, getClassLoaders(classLoader));
   }
@@ -63,6 +71,8 @@ public class ClassLoaderWrapper {
    * @param resource - the resource to find
    * @return the stream or null
    */
+  // 在classpath下找资源文件，并将资源文件转成InputStream对象，
+  // 返回该InputStream对象
   public InputStream getResourceAsStream(String resource) {
     return getResourceAsStream(resource, getClassLoaders(null));
   }
@@ -74,6 +84,8 @@ public class ClassLoaderWrapper {
    * @param classLoader - the first class loader to try
    * @return the stream or null
    */
+  // 在classpath下找资源文件，并将资源文件转成InputStream对象，
+  // 返回该InputStream对象
   public InputStream getResourceAsStream(String resource, ClassLoader classLoader) {
     return getResourceAsStream(resource, getClassLoaders(classLoader));
   }
@@ -85,6 +97,7 @@ public class ClassLoaderWrapper {
    * @return - the class
    * @throws ClassNotFoundException Duh.
    */
+  // 加载name指定的类
   public Class<?> classForName(String name) throws ClassNotFoundException {
     return classForName(name, getClassLoaders(null));
   }
@@ -97,6 +110,7 @@ public class ClassLoaderWrapper {
    * @return - the class
    * @throws ClassNotFoundException Duh.
    */
+  // 加载name指定的类，先用入参classLoader加载
   public Class<?> classForName(String name, ClassLoader classLoader) throws ClassNotFoundException {
     return classForName(name, getClassLoaders(classLoader));
   }
@@ -104,10 +118,12 @@ public class ClassLoaderWrapper {
   /**
    * Try to get a resource from a group of classloaders
    *
-   * @param resource    - the resource to get
+   * @param resource    - the resource to get （资源文件，例如： "org/apache/ibatis/databases/jpetstore/jpetstore-hsqldb.properties"）
    * @param classLoader - the classloaders to examine
    * @return the resource or null
    */
+  // 将文件转成InputStream对象，并返回该InputStream对象。（即 使用类加载器将入参resource转成InputStream对象，之后可以直接从流对象中读取文件内容）
+  // 若在classpath下找不到该文件，则返回null
   InputStream getResourceAsStream(String resource, ClassLoader[] classLoader) {
     for (ClassLoader cl : classLoader) {
       if (null != cl) {
@@ -131,10 +147,13 @@ public class ClassLoaderWrapper {
   /**
    * Get a resource as a URL using the current class path
    *
-   * @param resource    - the resource to locate
+   * @param resource    - the resource to locate （一般是 .properties文件，例如 "org/apache/ibatis/databases/jpetstore/jpetstore-hsqldb.properties"）
    * @param classLoader - the class loaders to examine
    * @return the resource or null
    */
+
+  // 将文件路径转成URL对象，并返回该URL对象。（即 使用类加载器将入参resource转成URL对象）
+  // 若在classpath下找不到该文件，则返回null
   URL getResourceAsURL(String resource, ClassLoader[] classLoader) {
 
     URL url;
@@ -144,6 +163,7 @@ public class ClassLoaderWrapper {
       if (null != cl) {
 
         // look for the resource as passed in...
+        // 返回一个URL, 该URL是对资源resource的定位
         url = cl.getResource(resource);
 
         // ...but some class loaders want this leading "/", so we'll add it
@@ -175,6 +195,8 @@ public class ClassLoaderWrapper {
    * @return the class
    * @throws ClassNotFoundException - Remember the wisdom of Judge Smails: Well, the world needs ditch diggers, too.
    */
+  // 使用类加载器数组中的类加载器，加载name对应的clazz，
+  // 都加载不到则抛出异常。
   Class<?> classForName(String name, ClassLoader[] classLoader) throws ClassNotFoundException {
 
     for (ClassLoader cl : classLoader) {
@@ -201,11 +223,19 @@ public class ClassLoaderWrapper {
 
   }
 
+
+  /**
+   * 返回类加载器的数组
+   * @param classLoader 数组的第一个元素（类加载器）
+   * @return
+   */
   ClassLoader[] getClassLoaders(ClassLoader classLoader) {
     return new ClassLoader[]{
         classLoader,
         defaultClassLoader,
+        // 当前线程中保存的类加载器
         Thread.currentThread().getContextClassLoader(),
+        // 加载当前类的类加载器
         getClass().getClassLoader(),
         systemClassLoader};
   }

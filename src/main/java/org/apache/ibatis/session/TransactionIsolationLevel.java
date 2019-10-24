@@ -20,6 +20,7 @@ import java.sql.Connection;
 /**
  * @author Clinton Begin
  */
+// 隔离级别
 public enum TransactionIsolationLevel {
   NONE(Connection.TRANSACTION_NONE),
   READ_COMMITTED(Connection.TRANSACTION_READ_COMMITTED),

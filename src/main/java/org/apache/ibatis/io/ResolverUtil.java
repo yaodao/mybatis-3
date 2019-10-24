@@ -66,6 +66,7 @@ public class ResolverUtil<T> {
    * A simple interface that specifies how to test classes to determine if they
    * are to be included in the results produced by the ResolverUtil.
    */
+  // 简单的接口，只提供一个方法，方法用于检验入参type是否满足自定义的条件，满足返回true，否则返回false
   public interface Test {
     /**
      * Will be called repeatedly with candidate classes. Must return True if a class
@@ -78,6 +79,7 @@ public class ResolverUtil<T> {
    * A Test that checks to see if each class is assignable to the provided class. Note
    * that this test will match the parent type itself if it is presented for matching.
    */
+  // 检验某个clazz是否与parent相同或者是parent的子类
   public static class IsA implements Test {
     private Class<?> parent;
 
@@ -87,8 +89,11 @@ public class ResolverUtil<T> {
     }
 
     /** Returns true if type is assignable to the parent type supplied in the constructor. */
+    // 如果parent是type的父类或父接口 或者 parent和type类型相同，则返回true
     @Override
     public boolean matches(Class<?> type) {
+      // 判断parent是否与type相同的类型，或者parent是否为type的父类或父接口。
+      // 如果是，则返回true，否则返回false。
       return type != null && parent.isAssignableFrom(type);
     }
 
@@ -102,7 +107,9 @@ public class ResolverUtil<T> {
    * A Test that checks to see if each class is annotated with a specific annotation. If it
    * is, then the test returns true, otherwise false.
    */
+  // 检验某个clazz是否带本类指定的注解。
   public static class AnnotatedWith implements Test {
+    // 本类指定的注解
     private Class<? extends Annotation> annotation;
 
     /** Constructs an AnnotatedWith test for the specified annotation type. */
@@ -112,6 +119,7 @@ public class ResolverUtil<T> {
 
     /** Returns true if the type is annotated with the class provided to the constructor. */
     @Override
+    // 入参type上有annotation这个注解，则返回true
     public boolean matches(Class<?> type) {
       return type != null && type.isAnnotationPresent(annotation);
     }
@@ -123,6 +131,7 @@ public class ResolverUtil<T> {
   }
 
   /** The set of matches being accumulated. */
+  // 匹配的clazz对象
   private Set<Class<? extends T>> matches = new HashSet<>();
 
   /**
@@ -134,6 +143,8 @@ public class ResolverUtil<T> {
   /**
    * Provides access to the classes discovered so far. If no calls have been made to
    * any of the {@code find()} methods, this set will be empty.
+   *
+   * <p/>提供目前为止发现的classes，如果还没有调用过find()方法，则返回空集合。
    *
    * @return the set of classes that have been discovered.
    */
@@ -147,6 +158,7 @@ public class ResolverUtil<T> {
    *
    * @return the ClassLoader that will be used to scan for classes
    */
+  // 返回当前类的成员变量classloader， 若为空，则返回线程上下文的类加载器
   public ClassLoader getClassLoader() {
     return classloader == null ? Thread.currentThread().getContextClassLoader() : classloader;
   }
@@ -157,6 +169,7 @@ public class ResolverUtil<T> {
    *
    * @param classloader a ClassLoader to use when scanning for classes
    */
+  // 设置当前类的成员变量classloader
   public void setClassLoader(ClassLoader classloader) {
     this.classloader = classloader;
   }
@@ -213,10 +226,21 @@ public class ResolverUtil<T> {
    * @param packageName the name of the package from which to start scanning for
    *        classes, e.g. {@code net.sourceforge.stripes}
    */
+
+  /**
+   * 扫描指定包名内的class，包括包下面的子包中的class，
+   * 对每个class都使用test试一下，看是否满足条件，满足则将class放到当前类对象的成员变量matches中
+   * @param test  用于过滤的类实例
+   * @param packageName  包名，例如： net.sourceforge.stripes
+   * @return
+   */
   public ResolverUtil<T> find(Test test, String packageName) {
+    // 将包名中的'.'替换成 '/' ，
+    // 例如 "net.sourceforge.stripes"  变成 "net/sourceforge/stripes"
     String path = getPackagePath(packageName);
 
     try {
+      // 查找由app加载器加载的类中，包的名字以path开头的类。并返回这些类
       List<String> children = VFS.getInstance().list(path);
       for (String child : children) {
         if (child.endsWith(".class")) {
@@ -236,6 +260,8 @@ public class ResolverUtil<T> {
    *
    * @param packageName The Java package name to convert to a path
    */
+  // 将入参packageName中的 '.'替换成 '/'
+  // 例如： "org.apache.ibatis.io" 替换后为 "org/apache/ibatis/io"
   protected String getPackagePath(String packageName) {
     return packageName == null ? null : packageName.replace('.', '/');
   }
@@ -244,18 +270,22 @@ public class ResolverUtil<T> {
    * Add the class designated by the fully qualified class name provided to the set of
    * resolved classes if and only if it is approved by the Test supplied.
    *
-   * @param test the test used to determine if the class matches
-   * @param fqn the fully qualified name of a class
+   * @param test the test used to determine if the class matches 做过滤条件的类对象
+   * @param fqn the fully qualified name of a class  类全名
    */
   @SuppressWarnings("unchecked")
+  // 加载fqn串所表示的类的clazz，并测试该clazz是否满足条件，满足则添加到当前类的成员变量matches中
   protected void addIfMatching(Test test, String fqn) {
     try {
+      // 留下".class"之前的字符串， 并将字符串中的 "/" 替换成 "."
       String externalName = fqn.substring(0, fqn.indexOf('.')).replace('/', '.');
       ClassLoader loader = getClassLoader();
       if (log.isDebugEnabled()) {
         log.debug("Checking to see if class " + externalName + " matches criteria [" + test + "]");
       }
 
+      // 加载类的clazz，并测试该clazz是否满足条件，
+      // 满足则添加到当前对象的成员变量matches中。
       Class<?> type = loader.loadClass(externalName);
       if (test.matches(type)) {
         matches.add((Class<T>) type);

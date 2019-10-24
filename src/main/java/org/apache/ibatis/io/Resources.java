@@ -30,6 +30,8 @@ import java.util.Properties;
  *
  * @author Clinton Begin
  */
+// 该类使用类加载器获取到资源文件，并将资源文件转换成URL或者InputStream，之后供外部的代码使用。
+// 处理的资源文件，都是在classpath下的资源文件。
 public class Resources {
 
   private static ClassLoaderWrapper classLoaderWrapper = new ClassLoaderWrapper();

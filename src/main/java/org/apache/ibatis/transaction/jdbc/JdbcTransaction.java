@@ -42,19 +42,27 @@ public class JdbcTransaction implements Transaction {
   protected Connection connection;
   protected DataSource dataSource;
   protected TransactionIsolationLevel level;
+  /**
+   * 自动提交状态
+   * 自动提交为true时，每执行一条sql语句，数据库就会提交一次。相当于每一条sql，都在自己的一个事务里。
+   * 自动提交为false时，多条sql可以在同一个事务中执行。
+   */
   protected boolean autoCommit;
 
+  // 构造一个JdbcTransaction对象
   public JdbcTransaction(DataSource ds, TransactionIsolationLevel desiredLevel, boolean desiredAutoCommit) {
     dataSource = ds;
     level = desiredLevel;
     autoCommit = desiredAutoCommit;
   }
 
+  // 构造一个JdbcTransaction对象
   public JdbcTransaction(Connection connection) {
     this.connection = connection;
   }
 
   @Override
+  // 获取一个数据库连接对象
   public Connection getConnection() throws SQLException {
     if (connection == null) {
       openConnection();
@@ -63,17 +71,22 @@ public class JdbcTransaction implements Transaction {
   }
 
   @Override
+  // 提交修改,并释放持有的所有数据库锁
   public void commit() throws SQLException {
+    // 若不是自动提交，则手动提交
     if (connection != null && !connection.getAutoCommit()) {
       if (log.isDebugEnabled()) {
         log.debug("Committing JDBC Connection [" + connection + "]");
       }
+      // 提交修改，并释放数据库锁
       connection.commit();
     }
   }
 
   @Override
+  // 回滚,并释放持有的所有数据库锁
   public void rollback() throws SQLException {
+    // 只有 autoCommit=false，才能回滚
     if (connection != null && !connection.getAutoCommit()) {
       if (log.isDebugEnabled()) {
         log.debug("Rolling back JDBC Connection [" + connection + "]");
@@ -83,8 +96,10 @@ public class JdbcTransaction implements Transaction {
   }
 
   @Override
+  // 释放数据库连接对象
   public void close() throws SQLException {
     if (connection != null) {
+      // 将自动提交设置为true
       resetAutoCommit();
       if (log.isDebugEnabled()) {
         log.debug("Closing JDBC Connection [" + connection + "]");
@@ -93,6 +108,7 @@ public class JdbcTransaction implements Transaction {
     }
   }
 
+  // 设置Connection对象的auto-commit属性值为入参desiredAutoCommit
   protected void setDesiredAutoCommit(boolean desiredAutoCommit) {
     try {
       if (connection.getAutoCommit() != desiredAutoCommit) {
@@ -110,6 +126,8 @@ public class JdbcTransaction implements Transaction {
     }
   }
 
+  // 若Connection对象的auto-commit属性值为false，
+  // 则将Connection对象的auto-commit属性值设置为true （mysql的自动提交默认为开启）
   protected void resetAutoCommit() {
     try {
       if (!connection.getAutoCommit()) {
@@ -131,6 +149,7 @@ public class JdbcTransaction implements Transaction {
     }
   }
 
+  // 获取一个数据库连接对象，并设置隔离级别和自动提交状态
   protected void openConnection() throws SQLException {
     if (log.isDebugEnabled()) {
       log.debug("Opening JDBC Connection");

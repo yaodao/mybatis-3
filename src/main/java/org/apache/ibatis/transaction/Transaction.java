@@ -24,6 +24,10 @@ import java.sql.SQLException;
  *
  * @author Clinton Begin
  */
+
+/**
+ * 包装数据库连接对象， 处理连接对象connection的生命周期，包括：建立，提交/回滚 和 关闭。
+ */
 public interface Transaction {
 
   /**

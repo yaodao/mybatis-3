@@ -70,8 +70,12 @@ public enum JdbcType {
   TIMESTAMP_WITH_TIMEZONE(Types.TIMESTAMP_WITH_TIMEZONE); // JDBC 4.2 JDK8
 
   public final int TYPE_CODE;
+  // key是code，value是enum
   private static Map<Integer,JdbcType> codeLookup = new HashMap<>();
 
+  // 这里在初始化块中 填充codeLookup 挺好，
+  // 将枚举理解成类后，就知道这块代码什么时候执行了。
+  // （在加载枚举类型时执行，即当在代码中使用 JdbcType.***时，就会执行该块代码）
   static {
     for (JdbcType type : JdbcType.values()) {
       codeLookup.put(type.TYPE_CODE, type);
@@ -82,6 +86,7 @@ public enum JdbcType {
     this.TYPE_CODE = code;
   }
 
+  // 通过code找enum， 人家也是把该方法定义成static
   public static JdbcType forCode(int code)  {
     return codeLookup.get(code);
   }

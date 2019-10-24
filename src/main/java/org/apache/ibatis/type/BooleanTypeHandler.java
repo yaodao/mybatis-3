@@ -26,12 +26,21 @@ import java.sql.SQLException;
 public class BooleanTypeHandler extends BaseTypeHandler<Boolean> {
 
   @Override
+  /**
+   * 因为上层方法已经对parameter进行了判空，传到这里的parameter肯定不是空，
+   * 所以这里的方法名字是 setNonNullParameter
+   *
+   * 将ps的第i个位置设置为parameter。
+   * parameter是java的数据类型，各个厂商在实现jdbc的时候，会将这个java类型转换成数据库中的类型。
+   */
   public void setNonNullParameter(PreparedStatement ps, int i, Boolean parameter, JdbcType jdbcType)
       throws SQLException {
     ps.setBoolean(i, parameter);
   }
 
   @Override
+  // 从rs中取当前行的columnName对应的字段值，
+  // 当表中该字段值为NULL时，返回null；否则，则返回该字段值。
   public Boolean getNullableResult(ResultSet rs, String columnName)
       throws SQLException {
     boolean result = rs.getBoolean(columnName);
@@ -39,6 +48,8 @@ public class BooleanTypeHandler extends BaseTypeHandler<Boolean> {
   }
 
   @Override
+  // 从rs中取当前行的第columnIndex个字段的值，
+  // 当表中该字段值为NULL时，返回null；否则，则返回该字段值。
   public Boolean getNullableResult(ResultSet rs, int columnIndex)
       throws SQLException {
     boolean result = rs.getBoolean(columnIndex);

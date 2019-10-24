@@ -42,6 +42,7 @@ public final class Environment {
     this.dataSource = dataSource;
   }
 
+  // 先使用自己的方法给自己的属性赋值，最后用这些属性构造一个Environment对象。
   public static class Builder {
     private String id;
     private TransactionFactory transactionFactory;
@@ -65,6 +66,7 @@ public final class Environment {
       return this.id;
     }
 
+    // 构造一个Environment对象，并返回它
     public Environment build() {
       return new Environment(this.id, this.transactionFactory, this.dataSource);
     }
