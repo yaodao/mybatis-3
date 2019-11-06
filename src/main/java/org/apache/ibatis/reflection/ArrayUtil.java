@@ -29,16 +29,23 @@ public class ArrayUtil {
    *          The object to get a hash code for. May be an array or <code>null</code>.
    * @return A hash code of {@code obj} or 0 if {@code obj} is <code>null</code>
    */
+  // 返回obj对应的hashcode值
+  // 若obj为空，则返回0
+  // 若obj不是数组，则返回obj.hashCode();
+  // 若obj是数组，则返回Arrays.hashCode(obj);
   public static int hashCode(Object obj) {
     if (obj == null) {
       // for consistency with Arrays#hashCode() and Objects#hashCode()
       return 0;
     }
     final Class<?> clazz = obj.getClass();
+    // 若obj不是数组类型，则直接返回obj的hashcode值
     if (!clazz.isArray()) {
       return obj.hashCode();
     }
+    // 数组的元素类型
     final Class<?> componentType = clazz.getComponentType();
+    // 根据数组元素的类型，调用相应的重载函数，返回hashcode值
     if (long.class.equals(componentType)) {
       return Arrays.hashCode((long[]) obj);
     } else if (int.class.equals(componentType)) {
@@ -76,6 +83,9 @@ public class ArrayUtil {
    *          The right hand object to compare. May be an array or <code>null</code>
    * @return <code>true</code> if two objects are equal; <code>false</code> otherwise.
    */
+  // 1、若thisObj和thatObj都为空，返回true
+  // 2、若thisObj和thatObj 类型相同，且是非数组类型，则使用thisObj.equals(thatObj)比较，返回结果
+  // 3、若thisObj和thatObj 类型相同，且是数组类型，则比较数组中的每个元素，返回结果。
   public static boolean equals(Object thisObj, Object thatObj) {
     if (thisObj == null) {
       return thatObj == null;
@@ -119,6 +129,9 @@ public class ArrayUtil {
    *          An object. May be an array or <code>null</code>.
    * @return String representation of the {@code obj}.
    */
+  // 若obj为空，返回"null"
+  // 若obj不是数组，返回obj.toString()
+  // 若obj是数组，返回Arrays.toString(obj)
   public static String toString(Object obj) {
     if (obj == null) {
       return "null";
