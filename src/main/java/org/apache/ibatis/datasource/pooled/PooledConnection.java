@@ -33,7 +33,9 @@ class PooledConnection implements InvocationHandler {
 
   private final int hashCode;
   private final PooledDataSource dataSource;
+  // 被代理对象
   private final Connection realConnection;
+  // 代理对象
   private final Connection proxyConnection;
   private long checkoutTimestamp;
   private long createdTimestamp;
