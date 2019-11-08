@@ -35,10 +35,13 @@ class PooledConnection implements InvocationHandler {
   private final PooledDataSource dataSource;
   // 被代理对象
   private final Connection realConnection;
-  // 代理对象
+  // 代理对象，代理的realConnection对象（外部代码使用的是这个对象，即 从PooledConnection中取出这个对象使用）
   private final Connection proxyConnection;
+  // 当前连接对象被获取到的时间点
   private long checkoutTimestamp;
+  // 当前连接对象的创建时间点
   private long createdTimestamp;
+  // Connection对象最近被使用的时间点
   private long lastUsedTimestamp;
   private int connectionTypeCode;
   private boolean valid;
@@ -56,12 +59,14 @@ class PooledConnection implements InvocationHandler {
     this.createdTimestamp = System.currentTimeMillis();
     this.lastUsedTimestamp = System.currentTimeMillis();
     this.valid = true;
+    // 创建成员变量realConnection的代理对象（因为invoke方法中用的是realConnection）
     this.proxyConnection = (Connection) Proxy.newProxyInstance(Connection.class.getClassLoader(), IFACES, this);
   }
 
   /**
    * Invalidates the connection.
    */
+  // 使连接无效
   public void invalidate() {
     valid = false;
   }
@@ -71,6 +76,7 @@ class PooledConnection implements InvocationHandler {
    *
    * @return True if the connection is usable
    */
+  // 检查realConnection是否可用，可用则返回true
   public boolean isValid() {
     return valid && realConnection != null && dataSource.pingConnection(this);
   }
@@ -89,6 +95,7 @@ class PooledConnection implements InvocationHandler {
    *
    * @return The proxy
    */
+  // 获取连接的代理对象 （被代理的对象是realConnection）
   public Connection getProxyConnection() {
     return proxyConnection;
   }
@@ -98,6 +105,7 @@ class PooledConnection implements InvocationHandler {
    *
    * @return The hashcode of the real connection (or 0 if it is null)
    */
+  // 若realConnection为空，则返回0，否则返回realConnection的hash值
   public int getRealHashCode() {
     return realConnection == null ? 0 : realConnection.hashCode();
   }
@@ -107,6 +115,7 @@ class PooledConnection implements InvocationHandler {
    *
    * @return The connection type
    */
+  // url + user + password，之后取该串的hash值作为connectionTypeCode
   public int getConnectionTypeCode() {
     return connectionTypeCode;
   }
@@ -161,6 +170,7 @@ class PooledConnection implements InvocationHandler {
    *
    * @return - the time since the last use
    */
+  // 多长时间没使用connection
   public long getTimeElapsedSinceLastUse() {
     return System.currentTimeMillis() - lastUsedTimestamp;
   }
@@ -197,6 +207,7 @@ class PooledConnection implements InvocationHandler {
    *
    * @return the time
    */
+  // 到现在为止，当前connection对象已经被使用的时间。
   public long getCheckoutTime() {
     return System.currentTimeMillis() - checkoutTimestamp;
   }
@@ -213,6 +224,8 @@ class PooledConnection implements InvocationHandler {
    * @see Object#equals(Object)
    */
   @Override
+  // 若obj是PooledConnection类型，则比较realConnection.hashCode()
+  // 若obj是Connection类型，则比较obj.hashCode()和hashCode
   public boolean equals(Object obj) {
     if (obj instanceof PooledConnection) {
       return realConnection.hashCode() == ((PooledConnection) obj).realConnection.hashCode();

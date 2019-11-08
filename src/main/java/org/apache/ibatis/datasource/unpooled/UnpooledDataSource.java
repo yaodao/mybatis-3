@@ -36,7 +36,7 @@ import org.apache.ibatis.io.Resources;
  * @author Clinton Begin
  * @author Eduardo Macarron
  */
-// 不使用连接池，每次连接数据库，都会新建一个Connection对象
+// 不使用连接池，每次连接数据库，都会新建一个Connection对象。 成员变量通过读取xml文件赋值 （在XMLConfigBuilder类中完成读取）
 public class UnpooledDataSource implements DataSource {
 
   private ClassLoader driverClassLoader;

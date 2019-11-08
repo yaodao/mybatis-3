@@ -21,19 +21,31 @@ import java.util.List;
 /**
  * @author Clinton Begin
  */
+// 记录数据库的连接池的状态信息。
 public class PoolState {
 
   protected PooledDataSource dataSource;
 
+  // 空闲的连接对象集合
   protected final List<PooledConnection> idleConnections = new ArrayList<>();
+  // 活动的连接对象集合
   protected final List<PooledConnection> activeConnections = new ArrayList<>();
+  // 累积 获取连接对象成功的请求数量
   protected long requestCount = 0;
+  // 累积 请求一个连接对象的时间
   protected long accumulatedRequestTime = 0;
+  // 累积 连接对象已被使用的时间
   protected long accumulatedCheckoutTime = 0;
+  // 超时使用的连接数量（就是该连接对象超出了配置的可使用时间，这个时间点是从该连接对象放到 活动的连接对象集合开始计时）
   protected long claimedOverdueConnectionCount = 0;
+  // 累积 过期的时间（就是那些超时使用的连接对象的已使用时间之和）
   protected long accumulatedCheckoutTimeOfOverdueConnections = 0;
+  // 累积 线程等待获取连接的时间，
+  // （这个时间是，当没有可用的连接对象时，线程需要等待一段时间，再试试看有没有可用的连接对象，就是累积的这个等待的时间。多线程情况下。）
   protected long accumulatedWaitTime = 0;
+  // 需要等待获取连接对象的线程数量
   protected long hadToWaitCount = 0;
+  // 不可用连接数量
   protected long badConnectionCount = 0;
 
   public PoolState(PooledDataSource dataSource) {
