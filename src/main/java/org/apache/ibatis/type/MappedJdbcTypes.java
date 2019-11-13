@@ -27,7 +27,10 @@ import java.lang.annotation.Target;
 @Documented
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)
+// 与TypeHandler接口的实现类 配合使用的注解， 在@MappedJdbcTypes注解中，存放着TypeHandler的实现类 可以处理的jdbc类型
 public @interface MappedJdbcTypes {
+  // 相似的jdbc类型的数组
   JdbcType[] value();
+  // JdbcType数组中是否有一个元素为null。即 JdbcType[i]=null
   boolean includeNullJdbcType() default false;
 }

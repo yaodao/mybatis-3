@@ -268,7 +268,7 @@ public class UnpooledDataSource implements DataSource {
   }
 
   // 配置Connection对象的属性 ，包括最大连接时间，自动提交状态，隔离级别
-  // （暂时认为每个conn对象都可以单独设置自己的属性值，从而影响该次连接）
+  // （暂时认为所有conn对象有相同的属性值，因为是同一个数据源的连接对象）
   private void configureConnection(Connection conn) throws SQLException {
     if (defaultNetworkTimeout != null) {
       // 设置当前连接对象conn，等待数据库响应的最长时间

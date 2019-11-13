@@ -51,11 +51,19 @@ import org.apache.ibatis.io.Resources;
  * @author Clinton Begin
  * @author Kazuki Shimizu
  */
+
+/**
+ * 类型处理器注册器。
+ * 主要完成类型处理器的注册功能，同时也能对类型处理器进行统筹管理，其内部定义了集合来进行类型处理器的存取，同时定义了存取方法。
+ * 默认完成了大量常见类型处理器的注册。
+ */
 public final class TypeHandlerRegistry {
 
   private final Map<JdbcType, TypeHandler<?>>  jdbcTypeHandlerMap = new EnumMap<>(JdbcType.class);
+  // key是jdk自带的类型， value是jdk类型对应的jdbc信息，其中key是jdbc类型，value是该jdbc类型对应的处理对象。
   private final Map<Type, Map<JdbcType, TypeHandler<?>>> typeHandlerMap = new ConcurrentHashMap<>();
   private final TypeHandler<Object> unknownTypeHandler = new UnknownTypeHandler(this);
+  // key是handler的clazz，value是handler的对象（其中 handler是TypeHandler接口的实现类的对象）
   private final Map<Class<?>, TypeHandler<?>> allTypeHandlersMap = new HashMap<>();
 
   private static final Map<JdbcType, TypeHandler<?>> NULL_TYPE_HANDLER_MAP = Collections.emptyMap();
@@ -341,21 +349,41 @@ public final class TypeHandlerRegistry {
   }
 
   // java type + handler
-
+  // 入参javaType是jdk自带的类的clazz， 入参typeHandler是javaType的处理对象（是TypeHandler接口的实现类的对象）
   public <T> void register(Class<T> javaType, TypeHandler<? extends T> typeHandler) {
     register((Type) javaType, typeHandler);
   }
 
+
+  /**
+   * 填充当前对象的成员变量typeHandlerMap、allTypeHandlersMap
+   *
+   * 具体是：
+   * 将（javaType，（jdbcType，typeHandler）） 添加到成员变量typeHandlerMap
+   * 将（typeHandler.class，typeHandler） 添加到成员变量allTypeHandlersMap
+   *
+   * 其中，
+   * jdbcType是从typeHandler的注解中取到，是JdbcType类型的枚举
+   * javaType是jdk自带的类型，例如：String.class
+   * typeHandler是处理器，可以处理自身注解中列出的那些枚举所表达的类型
+   * 题外话，Type类型的变量只能赋值为clazz类型
+   */
   private <T> void register(Type javaType, TypeHandler<? extends T> typeHandler) {
+    // 取@MappedJdbcTypes注解的值
     MappedJdbcTypes mappedJdbcTypes = typeHandler.getClass().getAnnotation(MappedJdbcTypes.class);
+
+    // 填充当前对象的成员变量typeHandlerMap、allTypeHandlersMap
     if (mappedJdbcTypes != null) {
+      // 从注解中取jdbcType
       for (JdbcType handledJdbcType : mappedJdbcTypes.value()) {
         register(javaType, handledJdbcType, typeHandler);
       }
       if (mappedJdbcTypes.includeNullJdbcType()) {
+        // 将（javaType，（null，typeHandler）） 添加到成员变量typeHandlerMap
         register(javaType, null, typeHandler);
       }
     } else {
+      // 将（javaType，（null，typeHandler）） 添加到成员变量typeHandlerMap
       register(javaType, null, typeHandler);
     }
   }
@@ -370,6 +398,8 @@ public final class TypeHandlerRegistry {
     register((Type) type, jdbcType, handler);
   }
 
+  // 将入参（javaType，（jdbcType，handler）） 添加到成员变量typeHandlerMap
+  // 将入参（handler.class，handler） 添加到成员变量allTypeHandlersMap
   private void register(Type javaType, JdbcType jdbcType, TypeHandler<?> handler) {
     if (javaType != null) {
       Map<JdbcType, TypeHandler<?>> map = typeHandlerMap.get(javaType);
@@ -379,6 +409,7 @@ public final class TypeHandlerRegistry {
       }
       map.put(jdbcType, handler);
     }
+    // 将 （handler.class，handler） 添加到成员变量allTypeHandlersMap
     allTypeHandlersMap.put(handler.getClass(), handler);
   }
 

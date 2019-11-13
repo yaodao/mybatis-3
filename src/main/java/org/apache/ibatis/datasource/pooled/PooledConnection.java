@@ -32,16 +32,17 @@ class PooledConnection implements InvocationHandler {
   private static final Class<?>[] IFACES = new Class<?>[] { Connection.class };
 
   private final int hashCode;
+  // 当前连接对象所连接的数据源
   private final PooledDataSource dataSource;
   // 被代理对象
   private final Connection realConnection;
   // 代理对象，代理的realConnection对象（外部代码使用的是这个对象，即 从PooledConnection中取出这个对象使用）
   private final Connection proxyConnection;
-  // 当前连接对象被获取到的时间点
+  // 当前连接对象被获取到的时间点（就是从线程池取出该连接的那个时间点）
   private long checkoutTimestamp;
   // 当前连接对象的创建时间点
   private long createdTimestamp;
-  // Connection对象最近被使用的时间点
+  // 当前连接对象最近被使用的时间点
   private long lastUsedTimestamp;
   private int connectionTypeCode;
   private boolean valid;
@@ -207,7 +208,7 @@ class PooledConnection implements InvocationHandler {
    *
    * @return the time
    */
-  // 到现在为止，当前connection对象已经被使用的时间。
+  // 到现在为止，当前对象已经被使用的时间。
   public long getCheckoutTime() {
     return System.currentTimeMillis() - checkoutTimestamp;
   }
@@ -247,6 +248,7 @@ class PooledConnection implements InvocationHandler {
   @Override
   public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
     String methodName = method.getName();
+    // 调用代理连接对象的close方法时。处理的方式是将代理的连接对象 对应的中间人对象 push到连接池中 （通过中介人对象，可以找到被代理对象）
     if (CLOSE.hashCode() == methodName.hashCode() && CLOSE.equals(methodName)) {
       dataSource.pushConnection(this);
       return null;
