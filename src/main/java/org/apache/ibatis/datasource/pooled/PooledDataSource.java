@@ -385,15 +385,16 @@ public class PooledDataSource implements DataSource {
     return ("" + url + username + password).hashCode();
   }
 
-  // 若空闲连接数量没有达到最大空闲连接数，则将conn放到缓存，否则释放conn。
+  // 当请求用完数据库连接对象后，将连接对象放回连接池。
+  // 若空闲连接集合中元素个数 没有达到最大空闲连接数，则将conn放到缓存，否则释放conn。
   protected void pushConnection(PooledConnection conn) throws SQLException {
 
     synchronized (state) {
       // 将conn从活动连接集合中移除
       state.activeConnections.remove(conn);
-      // 若conn.realConnection对象有效，进if
+      // 若conn对象有效，进if
       if (conn.isValid()) {
-        // 连接没有达到最大空闲连接数 且 conn对象的属性没有变更过（即用户名，密码，Url等没有改动）， 进if，向空闲连接集合中添加元素
+        // 空闲连接集合中元素个数 < 最大空闲连接数 且 数据源属性没有变更过（即用户名，密码，Url等没有改动）， 进if，向空闲连接集合中添加元素
         if (state.idleConnections.size() < poolMaximumIdleConnections && conn.getConnectionTypeCode() == expectedConnectionTypeCode) {
           // 累计 连接对象被使用的时长
           state.accumulatedCheckoutTime += conn.getCheckoutTime();
@@ -402,12 +403,10 @@ public class PooledDataSource implements DataSource {
             conn.getRealConnection().rollback();
           }
 
-          // 新创建一个代理连接对象，封装conn.getRealConnection()这个连接对象
-          //（conn也是一个代理连接对象，这里给conn内封装的连接对象，生成了一个新的代理连接对象。
+          // 新建一个连接对象，并放到空闲连接集合中
+          // （conn也是一个代理连接对象，这里给conn内封装的连接对象，生成了一个新的代理连接对象。
           // 而不是将原来的conn直接添加到缓存中， 这样可以使conn内封装的连接对象不会被原有的代理连接对象conn影响）
-          // 这句代码，就是new了一个PooledConnection对象。
           PooledConnection newConn = new PooledConnection(conn.getRealConnection(), this);
-          // 放到空闲连接集合中
           state.idleConnections.add(newConn);
           newConn.setCreatedTimestamp(conn.getCreatedTimestamp());
           newConn.setLastUsedTimestamp(conn.getLastUsedTimestamp());
@@ -420,7 +419,7 @@ public class PooledDataSource implements DataSource {
           // 通知等待获取连接的线程（不去判断是否真的有线程在等待）在popConnection方法中等待获取连接
           state.notifyAll();
         }
-        // 超过最大空闲连接数，则释放conn对象
+        // 空闲连接集合中元素个数 > 最大空闲连接数，则释放conn对象
         else {
           state.accumulatedCheckoutTime += conn.getCheckoutTime();
           // 若没有开启自动提交，则回滚，防止影响下一次使用 （感觉这个时候，正常的数据库操作都已经提交了，所以这里回滚对已提交的数据也没有影响。）
@@ -437,7 +436,7 @@ public class PooledDataSource implements DataSource {
           conn.invalidate();
         }
       }
-      // 若conn.realConnection无效，则无效计数加1
+      // 若conn无效，则无效计数加1
       else {
         if (log.isDebugEnabled()) {
           log.debug("A bad connection (" + conn.getRealHashCode() + ") attempted to return to the pool, discarding connection.");
