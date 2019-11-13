@@ -106,6 +106,7 @@ public class TypeAliasRegistry {
   @SuppressWarnings("unchecked")
   // throws class cast exception as well if types cannot be assigned
   // 返回入参string对应的clazz对象，
+  // （先从成员变量typeAliases中取入参string对应的clazz，若找不到，则直接加载入参string对应的clazz，返回clazz）
   public <T> Class<T> resolveAlias(String string) {
     try {
       if (string == null) {
@@ -155,7 +156,7 @@ public class TypeAliasRegistry {
     }
   }
 
-  // 由type得到别名， 将（别名，type）添加到成员变量typeAliases
+  // 由type得到别名， 将（别名，type）添加到成员变量typeAliases， 入参type是clazz对象
   public void registerAlias(Class<?> type) {
     // 别名默认是类名
     String alias = type.getSimpleName();

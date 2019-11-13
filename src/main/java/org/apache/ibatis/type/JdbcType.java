@@ -22,6 +22,8 @@ import java.util.Map;
 /**
  * @author Clinton Begin
  */
+// 就是把java.sql.Types中的属性，作为当前枚举类型JdbcType中的枚举元素。（这意思就是java.sql.Types中的属性就是jdbc的类型）
+// 可以看到，两者字面值一样
 public enum JdbcType {
   /*
    * This is added to enable basic support for the

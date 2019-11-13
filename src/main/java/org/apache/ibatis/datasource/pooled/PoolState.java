@@ -22,17 +22,18 @@ import java.util.List;
  * @author Clinton Begin
  */
 // 记录数据库的连接池的状态信息。
+// 例如： 记录有多少空闲连接，有多少活动连接等
 public class PoolState {
 
   protected PooledDataSource dataSource;
 
   // 空闲的连接对象集合
   protected final List<PooledConnection> idleConnections = new ArrayList<>();
-  // 活动的连接对象集合
+  // 活动的连接对象集合（就是这些连接正在被使用）
   protected final List<PooledConnection> activeConnections = new ArrayList<>();
-  // 累积 获取连接对象成功的请求数量
+  // 累积 获取到连接对象的请求个数
   protected long requestCount = 0;
-  // 累积 请求一个连接对象的时间
+  // 累积 请求到一个连接对象的时间
   protected long accumulatedRequestTime = 0;
   // 累积 连接对象已被使用的时间
   protected long accumulatedCheckoutTime = 0;

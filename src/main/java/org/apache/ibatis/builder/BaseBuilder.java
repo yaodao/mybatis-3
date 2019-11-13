@@ -63,6 +63,7 @@ public abstract class BaseBuilder {
     return new HashSet<>(Arrays.asList(value.split(",")));
   }
 
+  // 获取名字是alias的枚举类型，并返回
   protected JdbcType resolveJdbcType(String alias) {
     if (alias == null) {
       return null;
@@ -74,6 +75,7 @@ public abstract class BaseBuilder {
     }
   }
 
+  // 获取名字是alias的枚举类型，并返回
   protected ResultSetType resolveResultSetType(String alias) {
     if (alias == null) {
       return null;
@@ -85,6 +87,7 @@ public abstract class BaseBuilder {
     }
   }
 
+  // 获取名字是alias的枚举类型，并返回
   protected ParameterMode resolveParameterMode(String alias) {
     if (alias == null) {
       return null;
@@ -96,18 +99,22 @@ public abstract class BaseBuilder {
     }
   }
 
+  // 先得到alias对应的clazz对象，再反射生成该clazz的对象，返回该对象
   protected Object createInstance(String alias) {
     Class<?> clazz = resolveClass(alias);
     if (clazz == null) {
       return null;
     }
     try {
+      // 反射调用clazz的构造方法，生成该clazz的对象
       return resolveClass(alias).getDeclaredConstructor().newInstance();
     } catch (Exception e) {
       throw new BuilderException("Error creating instance. Cause: " + e, e);
     }
   }
 
+  // 返回入参alias对应的clazz对象
+  // （先从TypeAliasRegistry类的成员变量typeAliases中取入参string对应的clazz，若找不到，则直接加载入参string对应的clazz，返回clazz）
   protected <T> Class<? extends T> resolveClass(String alias) {
     if (alias == null) {
       return null;
@@ -123,7 +130,9 @@ public abstract class BaseBuilder {
     if (typeHandlerAlias == null) {
       return null;
     }
+    // 获取typeHandlerAlias对应的clazz
     Class<?> type = resolveClass(typeHandlerAlias);
+    // 若type不是TypeHandler.class的子类，则抛出异常。
     if (type != null && !TypeHandler.class.isAssignableFrom(type)) {
       throw new BuilderException("Type " + type.getName() + " is not a valid TypeHandler because it does not implement TypeHandler interface");
     }
@@ -145,6 +154,7 @@ public abstract class BaseBuilder {
     return handler;
   }
 
+  // 返回入参alias对应的clazz对象
   protected <T> Class<? extends T> resolveAlias(String alias) {
     return typeAliasRegistry.resolveAlias(alias);
   }
