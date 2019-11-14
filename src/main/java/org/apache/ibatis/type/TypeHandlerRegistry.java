@@ -365,8 +365,8 @@ public final class TypeHandlerRegistry {
    * 其中，
    * jdbcType是从typeHandler的注解中取到，是JdbcType类型的枚举
    * javaType是jdk自带的类型，例如：String.class
-   * typeHandler是处理器，可以处理自身注解中列出的那些枚举所表达的类型
-   * 题外话，Type类型的变量只能赋值为clazz类型
+   * typeHandler是处理器，可以处理javaType类型的数据
+   * 题外话，clazz类型可以赋值给Type类型的变量，Type的子类都可以赋值给Type类型的变量，clazz是一种
    */
   private <T> void register(Type javaType, TypeHandler<? extends T> typeHandler) {
     // 取@MappedJdbcTypes注解的值
