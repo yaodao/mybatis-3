@@ -37,12 +37,12 @@ public abstract class TypeReference<T> {
   }
 
   /**
-   * 取参数clazz的父类的泛型的具体类型。
-   * （若clazz的父类没有指定泛型的类型，则抛出异常）
+   * 取参数clazz的父类的泛型的具体类型，返回clazz父类的泛型的具体类型的clazz对象。
+   * （若clazz的父类没有指定泛型的具体类型，则抛出异常）
+   * 入参clazz 是 TypeReference接口的子类
    *
-   * 返回的是父类的泛型的具体类型的clazz对象。
    *
-   * 因为java泛型会被擦除，感觉这个函数就是为了防止类型被擦除，而提前记录下来。
+   * 因为java泛型会被擦除，感觉这个方法可以将泛型的具体类型，先记录下来。
    */
   Type getSuperclassTypeParameter(Class<?> clazz) {
     // 取clazz的父类，父类可能是Class类型，可能是ParameterizedType类型
@@ -57,14 +57,16 @@ public abstract class TypeReference<T> {
         return getSuperclassTypeParameter(clazz.getSuperclass());
       }
 
-      // 若从子类到TypeReference 没有一个类指定泛型的具体类型，则抛出异常。
+      // 若从clazz到TypeReference 没有一个类指定泛型的具体类型，则抛出异常。
       throw new TypeException("'" + getClass() + "' extends TypeReference but misses the type parameter. "
         + "Remove the extension or add a type parameter to it.");
     }
 
-    // 到这里，说明找到了一个泛型已经是确定的类型的父类，（即 genericSuperclass是ParameterizedType类型）
+    // 到这里，说明找到了一个泛型已经是确定的类型的父类，（这里的父类是入参clazz的父类）
+    // 到这里，genericSuperclass是ParameterizedType类型
 
-    // 得到泛型的具体类型（例如： ArrayList 得到 ArrayList.class）
+    // 得到泛型的具体类型（例如：genericSuperclass = Stu<ArrayList> ，到这里，genericSuperclass是ParameterizedType类型，不是Class类型
+    // 则getActualTypeArguments()[0]得到 ArrayList.class）
     Type rawType = ((ParameterizedType) genericSuperclass).getActualTypeArguments()[0];
     // TODO remove this when Reflector is fixed to return Types
     if (rawType instanceof ParameterizedType) {
