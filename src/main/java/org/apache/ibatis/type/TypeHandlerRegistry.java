@@ -56,9 +56,18 @@ import org.apache.ibatis.io.Resources;
  * 类型处理器注册器。
  * 主要完成类型处理器的注册功能，同时也能对类型处理器进行统筹管理，其内部定义了集合来进行类型处理器的存取，同时定义了存取方法。
  * 默认完成了大量常见类型处理器的注册。
+ *
+ *
+ *
+ *
+ * 下面代码有三个概念，先说下
+ * Class<?> javaType;  这是指jdk自带的类型，例如：String.class
+ * JdbcType jdbcType;  这是JdbcType类型的枚举值，一般从typeHandler的注解中取到，
+ * TypeHandler typeHandler; typeHandler是处理器对象，是TypeHandler接口的实现类的对象，用于处理javaType类型的变量。
  */
 public final class TypeHandlerRegistry {
 
+  // key是JdbcType类型的枚举值，value是该枚举值所在的TypeHandler对象
   private final Map<JdbcType, TypeHandler<?>>  jdbcTypeHandlerMap = new EnumMap<>(JdbcType.class);
   // key是jdk自带的类型， value是jdk类型对应的jdbc信息，其中key是jdbc类型，value是该jdbc类型对应的处理对象。
   private final Map<Type, Map<JdbcType, TypeHandler<?>>> typeHandlerMap = new ConcurrentHashMap<>();
@@ -313,6 +322,8 @@ public final class TypeHandlerRegistry {
     return unknownTypeHandler;
   }
 
+  // 填充当前对象的成员变量jdbcTypeHandlerMap，
+  // key是JdbcType类型的枚举值，value是该枚举值所在的TypeHandler对象
   public void register(JdbcType jdbcType, TypeHandler<?> handler) {
     jdbcTypeHandlerMap.put(jdbcType, handler);
   }
@@ -324,16 +335,21 @@ public final class TypeHandlerRegistry {
   // Only handler
 
   @SuppressWarnings("unchecked")
+  // 当只有TypeHandler对象时，则从该对象获取信息
+  // 填充当前对象的成员变量typeHandlerMap、allTypeHandlersMap
   public <T> void register(TypeHandler<T> typeHandler) {
     boolean mappedTypeFound = false;
+    // 从typeHandler的@MappedTypes注解中，获取javaType
     MappedTypes mappedTypes = typeHandler.getClass().getAnnotation(MappedTypes.class);
     if (mappedTypes != null) {
       for (Class<?> handledType : mappedTypes.value()) {
+        // 填充
         register(handledType, typeHandler);
         mappedTypeFound = true;
       }
     }
     // @since 3.1.0 - try to auto-discover the mapped type
+    // 若typeHandler是TypeReference的子类，则尝试从泛型中获取javaType
     if (!mappedTypeFound && typeHandler instanceof TypeReference) {
       try {
         TypeReference<T> typeReference = (TypeReference<T>) typeHandler;
@@ -343,13 +359,22 @@ public final class TypeHandlerRegistry {
         // maybe users define the TypeReference with a different type and are not assignable, so just ignore it
       }
     }
+    // 若typeHandler没有@MappedTypes注解，
+    // 则只将（typeHandler.class，typeHandler） 添加到成员变量allTypeHandlersMap
     if (!mappedTypeFound) {
       register((Class<T>) null, typeHandler);
     }
   }
 
-  // java type + handler
-  // 入参javaType是jdk自带的类的clazz， 入参typeHandler是javaType的处理对象（是TypeHandler接口的实现类的对象）
+
+  /**
+   * 将（javaType，（jdbcType，typeHandler）） 添加到成员变量typeHandlerMap，其中 jdbcType从typeHandler的注解中取到。
+   * 将（typeHandler.class，typeHandler） 添加到成员变量allTypeHandlersMap
+   *
+   * @param javaType jdk自带的类的clazz
+   * @param typeHandler 用于处理javaType类型的变量的对象（是TypeHandler接口的实现类的对象）
+   * @param <T>
+   */
   public <T> void register(Class<T> javaType, TypeHandler<? extends T> typeHandler) {
     register((Type) javaType, typeHandler);
   }
@@ -363,9 +388,9 @@ public final class TypeHandlerRegistry {
    * 将（typeHandler.class，typeHandler） 添加到成员变量allTypeHandlersMap
    *
    * 其中，
-   * jdbcType是从typeHandler的注解中取到，是JdbcType类型的枚举
    * javaType是jdk自带的类型，例如：String.class
-   * typeHandler是处理器，可以处理自身注解中列出的那些枚举所表达的类型
+   * jdbcType是从typeHandler的注解中取到，是JdbcType类型的枚举值
+   * typeHandler是处理器，用于处理javaType类型的变量
    * 题外话，Type类型的变量只能赋值为clazz类型
    */
   private <T> void register(Type javaType, TypeHandler<? extends T> typeHandler) {
@@ -388,12 +413,15 @@ public final class TypeHandlerRegistry {
     }
   }
 
+  // 填充当前对象的成员变量typeHandlerMap、allTypeHandlersMap
   public <T> void register(TypeReference<T> javaTypeReference, TypeHandler<? extends T> handler) {
     register(javaTypeReference.getRawType(), handler);
   }
 
   // java type + jdbc type + handler
 
+  // 将入参（type，（jdbcType，handler）） 添加到成员变量typeHandlerMap
+  // 将入参（handler.class，handler） 添加到成员变量allTypeHandlersMap
   public <T> void register(Class<T> type, JdbcType jdbcType, TypeHandler<? extends T> handler) {
     register((Type) type, jdbcType, handler);
   }
@@ -419,32 +447,40 @@ public final class TypeHandlerRegistry {
 
   // Only handler type
 
+  // 当只有TypeHandler接口的实现类对象的clazz时，
+  // 从该clazz获取信息，填充当前对象的成员变量typeHandlerMap、allTypeHandlersMap
   public void register(Class<?> typeHandlerClass) {
     boolean mappedTypeFound = false;
+    // 从入参typeHandlerClass的@MappedTypes注解中获取javaType
     MappedTypes mappedTypes = typeHandlerClass.getAnnotation(MappedTypes.class);
     if (mappedTypes != null) {
       for (Class<?> javaTypeClass : mappedTypes.value()) {
+        // 填充
         register(javaTypeClass, typeHandlerClass);
         mappedTypeFound = true;
       }
     }
+    // 若typeHandlerClass没有@MappedTypes注解，
+    // 则使用反射生成typeHandlerClass的对象，使用该对象提供的信息填充typeHandlerMap、allTypeHandlersMap
     if (!mappedTypeFound) {
       register(getInstance(null, typeHandlerClass));
     }
   }
 
   // java type + handler type
-
+  // 填充当前对象的成员变量typeHandlerMap、allTypeHandlersMap
   public void register(String javaTypeClassName, String typeHandlerClassName) throws ClassNotFoundException {
     register(Resources.classForName(javaTypeClassName), Resources.classForName(typeHandlerClassName));
   }
 
+  // 填充当前对象的成员变量typeHandlerMap、allTypeHandlersMap
   public void register(Class<?> javaTypeClass, Class<?> typeHandlerClass) {
     register(javaTypeClass, getInstance(javaTypeClass, typeHandlerClass));
   }
 
   // java type + jdbc type + handler type
 
+  // 填充当前对象的成员变量typeHandlerMap、allTypeHandlersMap
   public void register(Class<?> javaTypeClass, JdbcType jdbcType, Class<?> typeHandlerClass) {
     register(javaTypeClass, jdbcType, getInstance(javaTypeClass, typeHandlerClass));
   }
@@ -452,6 +488,14 @@ public final class TypeHandlerRegistry {
   // Construct a handler (used also from Builders)
 
   @SuppressWarnings("unchecked")
+  /**
+   * 使用反射生成一个typeHandlerClass的对象
+   *
+   * @param javaTypeClass TypeHandler接口的某个实现类的构造函数的参数类型clazz
+   * @param typeHandlerClass 一个clazz，是TypeHandler接口的某个实现类的clazz
+   * @param <T>
+   * @return
+   */
   public <T> TypeHandler<T> getInstance(Class<?> javaTypeClass, Class<?> typeHandlerClass) {
     if (javaTypeClass != null) {
       try {
@@ -473,12 +517,16 @@ public final class TypeHandlerRegistry {
 
   // scan
 
+  // 扫描包内的文件，找到TypeHandler的子类的clazz，
+  // 使用这些clazz获取信息，填充当前对象的成员变量typeHandlerMap、allTypeHandlersMap
   public void register(String packageName) {
     ResolverUtil<Class<?>> resolverUtil = new ResolverUtil<>();
+    // 扫描包内文件，找到所有TypeHandler的子类的clazz （其中 new ResolverUtil.IsA(TypeHandler.class) 这句就是创建IsA类的一个对象）
     resolverUtil.find(new ResolverUtil.IsA(TypeHandler.class), packageName);
     Set<Class<? extends Class<?>>> handlerSet = resolverUtil.getClasses();
     for (Class<?> type : handlerSet) {
       //Ignore inner classes and interfaces (including package-info.java) and abstract classes
+      // 若type不是匿名内部类  且 不是接口  且 不是抽象类， 则填充当前对象的成员变量typeHandlerMap、allTypeHandlersMap
       if (!type.isAnonymousClass() && !type.isInterface() && !Modifier.isAbstract(type.getModifiers())) {
         register(type);
       }
@@ -490,6 +538,7 @@ public final class TypeHandlerRegistry {
   /**
    * @since 3.2.2
    */
+  // 返回TypeHandler的所有子类对象的集合
   public Collection<TypeHandler<?>> getTypeHandlers() {
     return Collections.unmodifiableCollection(allTypeHandlersMap.values());
   }
