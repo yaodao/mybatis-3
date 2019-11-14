@@ -28,4 +28,8 @@ public class TestClass {
     this.myString = myString;
     this.myInteger = myInteger;
   }
+
+  public static void main(String[] args) {
+
+  }
 }

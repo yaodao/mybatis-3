@@ -69,7 +69,7 @@ public final class TypeHandlerRegistry {
 
   // key是JdbcType类型的枚举值，value是该枚举值所在的TypeHandler对象
   private final Map<JdbcType, TypeHandler<?>>  jdbcTypeHandlerMap = new EnumMap<>(JdbcType.class);
-  // key是jdk自带的类型， value是jdk类型对应的jdbc信息，其中key是jdbc类型，value是该jdbc类型对应的处理对象。
+  // key是jdk自带的类型， value是jdk类型对应的jdbc信息，其中key是JdbcType类型的枚举值，value是Type对应的处理对象。
   private final Map<Type, Map<JdbcType, TypeHandler<?>>> typeHandlerMap = new ConcurrentHashMap<>();
   private final TypeHandler<Object> unknownTypeHandler = new UnknownTypeHandler(this);
   // key是handler的clazz，value是handler的对象（其中 handler是TypeHandler接口的实现类的对象）
@@ -252,6 +252,7 @@ public final class TypeHandlerRegistry {
   }
 
   private Map<JdbcType, TypeHandler<?>> getJdbcHandlerMap(Type type) {
+    // key是JdbcType类型的枚举值，value是TypeHandler的实现类对象。
     Map<JdbcType, TypeHandler<?>> jdbcHandlerMap = typeHandlerMap.get(type);
     if (NULL_TYPE_HANDLER_MAP.equals(jdbcHandlerMap)) {
       return null;
@@ -305,8 +306,18 @@ public final class TypeHandlerRegistry {
     }
   }
 
+  /**
+   * 判断javaType对应的map中，处理器是否唯一，如果唯一，则返回该处理器，如果不唯一，返回null
+   * 也就是说，正常情况下，一个javaType 只对应一个处理器。
+   * 注意： 这里说的javaType不是入参中的JdbcType
+   *
+   * @param jdbcHandlerMap 这个是javaType对应的map
+   *                       （从成员变量typeHandlerMap中取key=javaType对应的map）
+   * @return 如果返回TypeHandler对象，则表示javaType只对应一个处理器； 返回null，则表示javaType对应多个不同的处理器
+   */
   private TypeHandler<?> pickSoleHandler(Map<JdbcType, TypeHandler<?>> jdbcHandlerMap) {
     TypeHandler<?> soleHandler = null;
+    // 判断map的values中的所有对象是否是同一个对象。
     for (TypeHandler<?> handler : jdbcHandlerMap.values()) {
       if (soleHandler == null) {
         soleHandler = handler;
