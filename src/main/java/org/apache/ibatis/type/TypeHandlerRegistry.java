@@ -54,7 +54,7 @@ import org.apache.ibatis.io.Resources;
 
 /**
  * 类型处理器注册器。
- * 主要完成类型处理器的注册功能，同时也能对类型处理器进行统筹管理，其内部定义了集合来进行类型处理器的存取，同时定义了存取方法。
+ * 主要完成类型处理器的注册功能，同时也能对类型处理器进行管理，其内部定义了集合来进行类型处理器的存取，同时定义了存取方法。
  * 默认完成了大量常见类型处理器的注册。
  *
  *
@@ -75,11 +75,20 @@ public final class TypeHandlerRegistry {
   // key是handler的clazz，value是handler的对象（其中 handler是TypeHandler接口的实现类的对象）
   private final Map<Class<?>, TypeHandler<?>> allTypeHandlersMap = new HashMap<>();
 
+  // 空的map
   private static final Map<JdbcType, TypeHandler<?>> NULL_TYPE_HANDLER_MAP = Collections.emptyMap();
 
   private Class<? extends TypeHandler> defaultEnumTypeHandler = EnumTypeHandler.class;
 
   public TypeHandlerRegistry() {
+
+    /**
+     * 以下对这些register方法的调用，目的都是填充成员变量typeHandlerMap，allTypeHandlersMap
+     * 具体是：
+     *  将（javaType，（jdbcType，typeHandler）） 添加到成员变量typeHandlerMap，其中 jdbcType从typeHandler的注解中取到。
+     *  将（typeHandler.class，typeHandler） 添加到成员变量allTypeHandlersMap
+     */
+
     register(Boolean.class, new BooleanTypeHandler());
     register(boolean.class, new BooleanTypeHandler());
     register(JdbcType.BOOLEAN, new BooleanTypeHandler());
@@ -190,6 +199,7 @@ public final class TypeHandlerRegistry {
     this.defaultEnumTypeHandler = typeHandler;
   }
 
+  // 判断入参javaType是否有对应的处理器对象，有则返回true
   public boolean hasTypeHandler(Class<?> javaType) {
     return hasTypeHandler(javaType, null);
   }
@@ -198,45 +208,61 @@ public final class TypeHandlerRegistry {
     return hasTypeHandler(javaTypeReference, null);
   }
 
+  // 判断入参javaType是否有对应的处理器对象，有则返回true
   public boolean hasTypeHandler(Class<?> javaType, JdbcType jdbcType) {
     return javaType != null && getTypeHandler((Type) javaType, jdbcType) != null;
   }
 
+  // 判断入参javaTypeReference是否有对应的处理器对象，有则返回true
   public boolean hasTypeHandler(TypeReference<?> javaTypeReference, JdbcType jdbcType) {
     return javaTypeReference != null && getTypeHandler(javaTypeReference, jdbcType) != null;
   }
 
+  // 取入参handlerType.class对应的handlerType对象
   public TypeHandler<?> getMappingTypeHandler(Class<? extends TypeHandler<?>> handlerType) {
     return allTypeHandlersMap.get(handlerType);
   }
 
+  // 取入参type对应的处理器，并返回，
   public <T> TypeHandler<T> getTypeHandler(Class<T> type) {
     return getTypeHandler((Type) type, null);
   }
 
+  // 取入参type对应的处理器，并返回，
   public <T> TypeHandler<T> getTypeHandler(TypeReference<T> javaTypeReference) {
     return getTypeHandler(javaTypeReference, null);
   }
 
+  // 取入参jdbcType对应的处理器，并返回，
   public TypeHandler<?> getTypeHandler(JdbcType jdbcType) {
     return jdbcTypeHandlerMap.get(jdbcType);
   }
 
+  // 取入参type对应的处理器，并返回，
   public <T> TypeHandler<T> getTypeHandler(Class<T> type, JdbcType jdbcType) {
     return getTypeHandler((Type) type, jdbcType);
   }
 
+  // 取入参javaTypeReference对应的处理器，并返回，
   public <T> TypeHandler<T> getTypeHandler(TypeReference<T> javaTypeReference, JdbcType jdbcType) {
     return getTypeHandler(javaTypeReference.getRawType(), jdbcType);
   }
 
   @SuppressWarnings("unchecked")
+  // 取入参type对应的处理器，并返回，
+  // 入参jdbcType是辅助作用，让返回更精准，非必须。
   private <T> TypeHandler<T> getTypeHandler(Type type, JdbcType jdbcType) {
+    // type若是ParamMap类型，返回null
     if (ParamMap.class.equals(type)) {
       return null;
     }
+
+    // 获取type对应的map （即 jdbcType与处理器的键值对）
     Map<JdbcType, TypeHandler<?>> jdbcHandlerMap = getJdbcHandlerMap(type);
     TypeHandler<?> handler = null;
+
+    // 从jdbcHandlerMap中取出处理器
+    // 先取jdbcType对应的处理器，若没有，再取null对应的处理器，若没有，再取jdbcHandlerMap中唯一的处理器
     if (jdbcHandlerMap != null) {
       handler = jdbcHandlerMap.get(jdbcType);
       if (handler == null) {
@@ -251,14 +277,18 @@ public final class TypeHandlerRegistry {
     return (TypeHandler<T>) handler;
   }
 
+  // 根据javaType查询jdbcType与处理器对应关系的键值对
   private Map<JdbcType, TypeHandler<?>> getJdbcHandlerMap(Type type) {
-    // key是JdbcType类型的枚举值，value是TypeHandler的实现类对象。
+    // 取type对应的map（key是JdbcType类型的枚举值，value是TypeHandler的实现类对象）
     Map<JdbcType, TypeHandler<?>> jdbcHandlerMap = typeHandlerMap.get(type);
     if (NULL_TYPE_HANDLER_MAP.equals(jdbcHandlerMap)) {
       return null;
     }
+
+    // 若上面用type取得的map是空，则尝试其他方式获取map
     if (jdbcHandlerMap == null && type instanceof Class) {
       Class<?> clazz = (Class<?>) type;
+      // 当type是枚举类型时，进if（估计一般用不上）
       if (Enum.class.isAssignableFrom(clazz)) {
         Class<?> enumClass = clazz.isAnonymousClass() ? clazz.getSuperclass() : clazz;
         jdbcHandlerMap = getJdbcHandlerMapForEnumInterfaces(enumClass, enumClass);
@@ -267,9 +297,13 @@ public final class TypeHandlerRegistry {
           return typeHandlerMap.get(enumClass);
         }
       } else {
+        // 从成员变量typeHandlerMap中取clazz的父类对应的map，没有返回null
         jdbcHandlerMap = getJdbcHandlerMapForSuperclass(clazz);
       }
     }
+
+    // 把上面得到的jdbcHandlerMap更新到typeHandlerMap中
+    // 即，将（type， NULL_TYPE_HANDLER_MAP 或者 jdbcHandlerMap）添加到成员变量typeHandlerMap
     typeHandlerMap.put(type, jdbcHandlerMap == null ? NULL_TYPE_HANDLER_MAP : jdbcHandlerMap);
     return jdbcHandlerMap;
   }
@@ -293,11 +327,16 @@ public final class TypeHandlerRegistry {
     return null;
   }
 
+  // 从成员变量typeHandlerMap中取clazz的父类对应的map，没有返回null
   private Map<JdbcType, TypeHandler<?>> getJdbcHandlerMapForSuperclass(Class<?> clazz) {
+    // 若superclass是Object、接口、基本类型、void 。那么返回的是null，
+    // 若superclass是数组，则返回 Object.class
     Class<?> superclass =  clazz.getSuperclass();
     if (superclass == null || Object.class.equals(superclass)) {
       return null;
     }
+
+    // 从成员变量typeHandlerMap中取superclass对应的map，没有则用superclass的父类，继续取对应的map
     Map<JdbcType, TypeHandler<?>> jdbcHandlerMap = typeHandlerMap.get(superclass);
     if (jdbcHandlerMap != null) {
       return jdbcHandlerMap;
@@ -307,11 +346,11 @@ public final class TypeHandlerRegistry {
   }
 
   /**
-   * 判断javaType对应的map中，处理器是否唯一，如果唯一，则返回该处理器，如果不唯一，返回null
+   * 判断某一个javaType对应的map中存储的，处理器是否唯一，如果唯一，则返回该处理器，如果不唯一，返回null
    * 也就是说，正常情况下，一个javaType 只对应一个处理器。
    * 注意： 这里说的javaType不是入参中的JdbcType
    *
-   * @param jdbcHandlerMap 这个是javaType对应的map
+   * @param jdbcHandlerMap 这个是某一个javaType对应的map
    *                       （从成员变量typeHandlerMap中取key=javaType对应的map）
    * @return 如果返回TypeHandler对象，则表示javaType只对应一个处理器； 返回null，则表示javaType对应多个不同的处理器
    */

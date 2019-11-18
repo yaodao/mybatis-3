@@ -47,17 +47,27 @@ import org.apache.ibatis.reflection.property.PropertyNamer;
  *
  * @author Clinton Begin
  */
+// 每个Reflector对象都对应一个类，在Reflector中缓存了反射操作需要使用的类的元信息。
 public class Reflector {
 
+  // 当前对象对应的类的clazz对象
   private final Class<?> type;
+  // 可读属性的名称集合，可读属性就是存在相应getter 方法的属性，初始值为空数纽
   private final String[] readablePropertyNames;
+  // 可写属性的名称集合，可写属性就是存在相应setter 方法的属性，初始值为空数纽
   private final String[] writablePropertyNames;
+  // key是属性名，value是对该属性set方法的一个包装对象
   private final Map<String, Invoker> setMethods = new HashMap<>();
+  // key是属性名，value是对该属性get方法的一个包装对象
   private final Map<String, Invoker> getMethods = new HashMap<>();
+  // key是属性名， value是setter方法的参数类型
   private final Map<String, Class<?>> setTypes = new HashMap<>();
+  //  key是属性名， value是getter方法的返回值类型
   private final Map<String, Class<?>> getTypes = new HashMap<>();
+  // 类的任意的一个无参构造函数
   private Constructor<?> defaultConstructor;
 
+  // 所有属性名称的集合 （key是大写的属性名，value是属性名）
   private Map<String, String> caseInsensitivePropertyMap = new HashMap<>();
 
   public Reflector(Class<?> clazz) {
@@ -76,6 +86,7 @@ public class Reflector {
     }
   }
 
+  // 从clazz中找一个无参的构造函数对象，并赋给当前对象的成员变量defaultConstructor
   private void addDefaultConstructor(Class<?> clazz) {
     Constructor<?>[] constructors = clazz.getDeclaredConstructors();
     Arrays.stream(constructors).filter(constructor -> constructor.getParameterTypes().length == 0)
@@ -200,17 +211,30 @@ public class Reflector {
     setTypes.put(name, typeToClass(paramTypes[0]));
   }
 
+  // 返回src对应的clazz对象。（src是数组时，返回数组对象的clazz）
+  // https://www.jianshu.com/p/e8eeff12c306 这篇文章举的例子挺多，可以参考
   private Class<?> typeToClass(Type src) {
     Class<?> result = null;
     if (src instanceof Class) {
       result = (Class<?>) src;
-    } else if (src instanceof ParameterizedType) {
+    }
+    // 若src是带泛型的类型，例如 ArrayList<String>
+    else if (src instanceof ParameterizedType) {
+      // 则result=ArrayList.class
       result = (Class<?>) ((ParameterizedType) src).getRawType();
-    } else if (src instanceof GenericArrayType) {
+    }
+    // 若src是 元素带泛型 的数组
+    else if (src instanceof GenericArrayType) {
+      // 返回数组内元素的类型
       Type componentType = ((GenericArrayType) src).getGenericComponentType();
+      // 若数组元素是普通类型
       if (componentType instanceof Class) {
+        // 返回数组对象的clazz
         result = Array.newInstance((Class<?>) componentType, 0).getClass();
-      } else {
+      }
+      // 若数组元素带泛型
+      else {
+        // 递归取得数组元素的类型，返回数组对象的clazz
         Class<?> componentClass = typeToClass(componentType);
         result = Array.newInstance(componentClass, 0).getClass();
       }
@@ -252,13 +276,16 @@ public class Reflector {
 
   private void addGetField(Field field) {
     if (isValidPropertyName(field.getName())) {
+      // 将（属性名，属性getter方法的包装对象）添加到getMethods
       getMethods.put(field.getName(), new GetFieldInvoker(field));
       Type fieldType = TypeParameterResolver.resolveFieldType(field, type);
       getTypes.put(field.getName(), typeToClass(fieldType));
     }
   }
 
+  // 判断入参name是否为合理的属性名
   private boolean isValidPropertyName(String name) {
+    // 以$开头 或者 等于"serialVersionUID"  或者  等于"class"， 都不合法，返回false
     return !(name.startsWith("$") || "serialVersionUID".equals(name) || "class".equals(name));
   }
 
@@ -271,19 +298,25 @@ public class Reflector {
    * @param clazz The class
    * @return An array containing all methods in this class
    */
+  // 返回clazz内所有的方法对象。（包括clazz的父类/父接口中的方法）
   private Method[] getClassMethods(Class<?> clazz) {
+    // key是方法签名，value是方法对象
     Map<String, Method> uniqueMethods = new HashMap<>();
     Class<?> currentClass = clazz;
     while (currentClass != null && currentClass != Object.class) {
+      // 取currentClass的所有方法，将（方法签名, 方法对象）添加到uniqueMethods
       addUniqueMethods(uniqueMethods, currentClass.getDeclaredMethods());
 
       // we also need to look for interface methods -
       // because the class may be abstract
+      // 取currentClass的所有接口，将接口中的方法添加到uniqueMethods
       Class<?>[] interfaces = currentClass.getInterfaces();
       for (Class<?> anInterface : interfaces) {
+        // 取anInterface的所有方法，将（方法签名, 方法对象）添加到uniqueMethods
         addUniqueMethods(uniqueMethods, anInterface.getMethods());
       }
 
+      // 取currentClass的父类clazz
       currentClass = currentClass.getSuperclass();
     }
 
@@ -292,13 +325,18 @@ public class Reflector {
     return methods.toArray(new Method[0]);
   }
 
+  // 遍历入参methods数组中的每个对象，将（signature, method）添加到uniqueMethods
+  // 其中，signature是由单个method对象生成的签名
   private void addUniqueMethods(Map<String, Method> uniqueMethods, Method[] methods) {
     for (Method currentMethod : methods) {
+      // 不是桥接方法，进if
       if (!currentMethod.isBridge()) {
+        // 得到自定义的方法签名
         String signature = getSignature(currentMethod);
         // check to see if the method is already known
         // if it is known, then an extended class must have
         // overridden a method
+        // 将（signature，currentMethod）添加到uniqueMethods
         if (!uniqueMethods.containsKey(signature)) {
           uniqueMethods.put(signature, currentMethod);
         }
@@ -306,6 +344,12 @@ public class Reflector {
     }
   }
 
+  /**
+   * 返回入参method对应的字符串，
+   *
+   * 例如：  private String opNum(Integer p1, Integer p2){}
+   * 返回串 "java.lang.String#opNum:java.lang.Integer,java.lang.Integer"
+   */
   private String getSignature(Method method) {
     StringBuilder sb = new StringBuilder();
     Class<?> returnType = method.getReturnType();
@@ -326,6 +370,7 @@ public class Reflector {
    * @return If can control member accessible, it return {@literal true}
    * @since 3.5.0
    */
+  // 检验是否可以存取类的成员（包括成员变量，成员方法）
   public static boolean canControlMemberAccessible() {
     try {
       SecurityManager securityManager = System.getSecurityManager();
@@ -343,10 +388,12 @@ public class Reflector {
    *
    * @return The class name
    */
+  // 返回当前对象对应的类的clazz对象
   public Class<?> getType() {
     return type;
   }
 
+  // 获取无参构造函数，没有抛出异常
   public Constructor<?> getDefaultConstructor() {
     if (defaultConstructor != null) {
       return defaultConstructor;
@@ -355,10 +402,12 @@ public class Reflector {
     }
   }
 
+  // 判断类是否有无参的构造函数
   public boolean hasDefaultConstructor() {
     return defaultConstructor != null;
   }
 
+  // 从成员变量setMethods中取propertyName对应的Invoker对象，没有则抛出异常
   public Invoker getSetInvoker(String propertyName) {
     Invoker method = setMethods.get(propertyName);
     if (method == null) {
@@ -367,6 +416,7 @@ public class Reflector {
     return method;
   }
 
+  // 从成员变量getMethods中取propertyName对应的Invoker对象，没有则抛出异常
   public Invoker getGetInvoker(String propertyName) {
     Invoker method = getMethods.get(propertyName);
     if (method == null) {
@@ -381,6 +431,7 @@ public class Reflector {
    * @param propertyName - the name of the property
    * @return The Class of the property setter
    */
+  // 获取propertyName对应的setter方法的参数类型
   public Class<?> getSetterType(String propertyName) {
     Class<?> clazz = setTypes.get(propertyName);
     if (clazz == null) {
@@ -395,6 +446,7 @@ public class Reflector {
    * @param propertyName - the name of the property
    * @return The Class of the property getter
    */
+  // 获取propertyName对应的getter方法的返回值类型
   public Class<?> getGetterType(String propertyName) {
     Class<?> clazz = getTypes.get(propertyName);
     if (clazz == null) {
@@ -408,6 +460,7 @@ public class Reflector {
    *
    * @return The array
    */
+  // 获取可读属性的名称集合，可读属性就是存在相应getter 方法的属性
   public String[] getGetablePropertyNames() {
     return readablePropertyNames;
   }
@@ -417,6 +470,7 @@ public class Reflector {
    *
    * @return The array
    */
+  // 可写属性的名称集合，可写属性就是存在相应setter 方法的属性
   public String[] getSetablePropertyNames() {
     return writablePropertyNames;
   }
@@ -427,6 +481,7 @@ public class Reflector {
    * @param propertyName - the name of the property to check
    * @return True if the object has a writable property by the name
    */
+  // 检查下 类中指定的属性名，是否有setter方法，有则返回true
   public boolean hasSetter(String propertyName) {
     return setMethods.keySet().contains(propertyName);
   }
@@ -437,10 +492,12 @@ public class Reflector {
    * @param propertyName - the name of the property to check
    * @return True if the object has a readable property by the name
    */
+  // 检查下 类中指定的属性名，是否有getter方法，有则返回true
   public boolean hasGetter(String propertyName) {
     return getMethods.keySet().contains(propertyName);
   }
 
+  // 返回name对应的属性名
   public String findPropertyName(String name) {
     return caseInsensitivePropertyMap.get(name.toUpperCase(Locale.ENGLISH));
   }
