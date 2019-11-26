@@ -34,7 +34,8 @@ import org.apache.ibatis.reflection.typeparam.Level0Mapper.Level0InnerMapper;
 import org.apache.ibatis.reflection.typeparam.Level1Mapper;
 import org.apache.ibatis.reflection.typeparam.Level2Mapper;
 import org.junit.jupiter.api.Test;
-
+// 这个测试文件 已经明确显示出TypeParameterResolver类中的各个函数的作用，就是把泛型解析成具体类型
+// 可以解析 三个位置 出现的泛型，分别是： 方法返回值，成员变量的类型， 方法的参数列表中参数的类型
 class TypeParameterResolverTest {
   @Test
   void testReturn_Lv0SimpleClass() throws Exception {
@@ -103,6 +104,7 @@ class TypeParameterResolverTest {
     assertEquals(List.class, paramType.getRawType());
     assertEquals(1, paramType.getActualTypeArguments().length);
     assertTrue(paramType.getActualTypeArguments()[0] instanceof WildcardType);
+    // 取出自定义的WildcardTypeImpl对象
     WildcardType wildcard = (WildcardType) paramType.getActualTypeArguments()[0];
     assertEquals(String.class, wildcard.getUpperBounds()[0]);
   }

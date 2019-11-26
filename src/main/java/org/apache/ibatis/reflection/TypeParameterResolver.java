@@ -28,6 +28,19 @@ import java.util.Arrays;
 /**
  * @author Iwao AVE!
  */
+
+/**
+ * 这个函数的作用，就是把泛型解析成具体类型
+ * 可以解析 三个位置 出现的泛型，分别是： 方法返回值，成员变量的类型， 方法的参数列表中参数的类型
+ * 这点从配套的测试用例中可以看出
+ *
+ * 例如：
+ * 接口  interface Level0Mapper<L, M, N>; 有函数  N select(N param);
+ * 若有
+ * public interface Level1Mapper<E, F> extends Level0Mapper<E, F, String> {}
+ * 则在Level1Mapper中解析select方法的返回值的类型， N 就被解析为String
+ *
+ */
 public class TypeParameterResolver {
 
   /**
@@ -77,12 +90,14 @@ public class TypeParameterResolver {
   // 从[srcType, declaringClass]这个继承结构中，将typeVar解析为具体化的类型
   // 举例： type是一个方法的返回值，srcType=Level1Mapper.class，declaringClass是Level0Mapper.class
   private static Type resolveType(Type type, Type srcType, Class<?> declaringClass) {
+    // type是泛型，例如: T
     if (type instanceof TypeVariable) {
       return resolveTypeVar((TypeVariable<?>) type, srcType, declaringClass);
-    } // type是泛型，例如：List<Double>
+    } // type是带泛型的类，例如：List<Double>
     else if (type instanceof ParameterizedType) {
       return resolveParameterizedType((ParameterizedType) type, srcType, declaringClass);
-    } else if (type instanceof GenericArrayType) {
+    } // type是数组 且数组中的元素带泛型
+    else if (type instanceof GenericArrayType) {
       return resolveGenericArrayType((GenericArrayType) type, srcType, declaringClass);
     } // type是普通clazz
     else {
@@ -133,6 +148,7 @@ public class TypeParameterResolver {
         args[i] = typeArgs[i];
       }
     }
+    // 将ParameterizedTypeImpl对象的actualTypeArguments属性 设置为args数组
     return new ParameterizedTypeImpl(rawType, null, args);
   }
 
@@ -166,13 +182,15 @@ public class TypeParameterResolver {
   }
 
   /**
-   * 解析入参typeVar的具体化类型（就是typeVar是个泛型，需要得到它对应的具体化的类型。 例如：typeVar代表T，若代码中给 T的具体类型是String，则本函数返回String）
-   * 从[srcType, declaringClass]这个继承结构中，查找typeVar的具体化类型
+   * 从 [srcType, declaringClass) 这个继承结构中，解析出typeVar这个泛型的具体化类型
+   * （在这区间中的某个类，会把这个typeVar代表的泛型具体化，这个函数就是取出这个具体化的类型）
+   * （typeVar是个泛型，需要得到它对应的具体化的类型。 例如：typeVar代表T，若代码中给 T的具体类型是String，则本函数返回String）
+   *
    *
    * 具体步骤：
    * 1.如果srcType的Class类型和declaringClass为同一个类，如果typeVar有上限，则返回typeVar的第一个上界， 否则返回Object.class
    * 2.如果不是，则代表declaringClass是srcType的父类或者实现的接口，则解析继承结构中有没有定义其具体化的类型
-   *其中的继承结构，包括从srcType到declaringClass的闭合区间
+   *其中的继承结构，是 [srcType, declaringClass)
    *
    * typeVar是一个方法的返回值，srcType=Level1Mapper.class，declaringClass是Level0Mapper.class
    */
@@ -192,8 +210,9 @@ public class TypeParameterResolver {
 
     // 到这 clazz=srcType.class
 
-    // 若clazz等于入参declaringClass，则表示在继承结构中没有获取其具体化的类型
-    // 如果typeVar有上限，则返回typeVar的第一个上界， 否则返回Object.class（这意思是，下面在继承层次中的 所有递归调用，都会在这里终结）
+    // 若到这里的clazz等于declaringClass，则表示在继承结构中没有得到typeVar的具体化类型（若在下面继承结构中得到typeVar的具体化类型，就已经返回了，不会再到这里）
+    // 如果typeVar有上限，则返回typeVar的第一个上界， 否则返回Object.class
+    // （注意： 下面所有递归调用，都会在这里终结）
     if (clazz == declaringClass) {
       Type[] bounds = typeVar.getBounds();
       if (bounds.length > 0) {
@@ -221,25 +240,40 @@ public class TypeParameterResolver {
     return Object.class;
   }
 
+
   /**
-   *  通过对父类/接口的扫描获取 入参typeVar指代的实际类型
-   *  typeVar是方法返回值，srcType=Level1Mapper.class，declaringClass是Level0Mapper.class，clazz是srcType.clazz，superclass是clazz的父接口，
+   * 使用 [srcType，declaringClass) 之间的类的泛型，具体化declaringClass中的泛型，之后从中找出typeVar这个泛型对应的具体类型，并返回
+   * （这个方法最终就是实现这个效果）
+   *
+   * 具体：
+   * 先使用srcType中的泛型，具体化superclass中的泛型，若superclass != declaringClass，
+   * 再使用superclass，具体化superclass的父类的泛型。这样不断用下一层的泛型具体化上一层的泛型，就可以保证最上层得到所有的具体化泛型
+   * 最终达到的效果是 具体化declaringClass中的所有泛型
+   *
+   * @param typeVar 要解析的泛型对象
+   * @param srcType 始发类
+   * @param declaringClass 终止类
+   * @param clazz 始发类的clazz
+   * @param superclass 始发类的父类
+   * @return
    */
   private static Type scanSuperTypes(TypeVariable<?> typeVar, Type srcType, Class<?> declaringClass, Class<?> clazz, Type superclass) {
-    // 若superclass带泛型，则进if
+    // 若superclass带泛型，则由superclass得到parentAsType，再具体化parentAsType中的泛型
     if (superclass instanceof ParameterizedType) {
       ParameterizedType parentAsType = (ParameterizedType) superclass;
-      // 获取当前对象的clazz
       Class<?> parentAsClass = (Class<?>) parentAsType.getRawType();
       // 获取泛型信息
       TypeVariable<?>[] parentTypeVars = parentAsClass.getTypeParameters();
       // 若子类带泛型
       if (srcType instanceof ParameterizedType) {
-        // 使用子类的具体化泛型，具体化一下父类的泛型，并记录在返回的ParameterizedType对象中 （感觉这句调用，才是解析入参typeVar的重点）
+        /**
+         * 尝试处理一下父类parentAsType中的泛型，让其具体化（其中 用到子类srcType的泛型）
+         * 返回一个ParameterizedType对象，包含父类RawType和父类具体化的泛型信息。 （感觉这句调用，才是解析入参typeVar的重点）
+         */
         parentAsType = translateParentTypeVars((ParameterizedType) srcType, clazz, parentAsType);
       }
-      // 如果declaringClass和parentAsClass表示同一类型，
-      // 则先判断出typeVar在parentAsClass的泛型中的位置，再从supperClass中取typeVar对应的具体化的类型，并返回
+      // 如果declaringClass和parentAsClass表示同一类型，表示已经对declaringClass中的泛型全部具体化了。
+      // 则从parentAsType中取typeVar对应的具体化的类型，并返回
       if (declaringClass == parentAsClass) {
         for (int i = 0; i < parentTypeVars.length; i++) {
           if (typeVar == parentTypeVars[i]) {
@@ -249,8 +283,13 @@ public class TypeParameterResolver {
           }
         }
       }
-      //通过判断parentAsClass是否是declaringClass的子类，来就决定是否进行递归解析（因为当前函数被调用处的java类可以实现多个接口）
+
+      // declaringClass != parentAsClass 说明对泛型的处理，还没有到底，parentAsClass还需要再向上一层 （底是declaringClass，也就是最终具体化的是这个类里面的泛型）
+
+      //通过判断parentAsClass是否是declaringClass的子类，来决定是否进行递归解析（因为当前函数被调用处的java类可以实现多个接口）
       if (declaringClass.isAssignableFrom(parentAsClass)) {
+        // （这里调用resolveTypeVar作用是，将parentAsType， parentAsType的父类 再次传给当前函数的srcType和superclass，这就实现了在继承层次中解析typeVar的效果）
+        // resolveTypeVar函数中会调用当前函数，实现了递归调用。
         return resolveTypeVar(typeVar, parentAsType, declaringClass);
       }
     } // superclass是Class类型，还需要判断superclass是否是declaringClass的子类，再决定是否进行递归解析。（因为当前函数被调用处的java类可以实现多个接口）
@@ -262,14 +301,15 @@ public class TypeParameterResolver {
 
 
   /**
-   * 使用子类的具体化的泛型信息，将父类提供的泛型给标识出具体类型。
-   * 返回一个ParameterizedType对象，包含父类的这些具体化的泛型信息。
+   * 使用子类srcType的具体化的泛型信息，将父类parentType提供的泛型给标识出具体类型。
+   * 返回一个ParameterizedType对象，包含父类RawType和具体化的泛型信息。
+   * 若子类没有标识出父类的泛型信息，则原样返回parentType
    *
    *
-   * @param srcType 举例： Level1Mapper<E, F>
-   * @param srcClass 是srcType.clazz
-   * @param parentType 是srcClass的父类/接口
-   * @return
+   * @param srcType 子类的Type类型， 举例： Level1Mapper<E, F>
+   * @param srcClass 子类的clazz，举例：srcType.clazz
+   * @param parentType 父类的Type类型（是srcClass的父类/接口）
+   * @return 返回一个ParameterizedType对象，包含父类RawType和具体化的泛型信息。
    */
   private static ParameterizedType translateParentTypeVars(ParameterizedType srcType, Class<?> srcClass, ParameterizedType parentType) {
     Type[] parentTypeArgs = parentType.getActualTypeArguments();
@@ -277,6 +317,9 @@ public class TypeParameterResolver {
     TypeVariable<?>[] srcTypeVars = srcClass.getTypeParameters();
     Type[] newParentArgs = new Type[parentTypeArgs.length];
     boolean noChange = true;
+    /**
+     * 将父类的泛型，使用子类的泛型来具体化，将具体化后的泛型添加到newParentArgs中。
+     */
     for (int i = 0; i < parentTypeArgs.length; i++) {
       // parentTypeArgs[i]是泛型，则尝试用子类的具体化泛型去辨别parentTypeArgs[i]的具体类型
       if (parentTypeArgs[i] instanceof TypeVariable) {
