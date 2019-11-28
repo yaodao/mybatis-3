@@ -21,6 +21,7 @@ import java.lang.reflect.Method;
 
 import org.apache.ibatis.reflection.ReflectionException;
 
+// 比父类多增加了一个exceptionMessage字段，表示具体的歧义信息
 public class AmbiguousMethodInvoker extends MethodInvoker {
   private final String exceptionMessage;
 

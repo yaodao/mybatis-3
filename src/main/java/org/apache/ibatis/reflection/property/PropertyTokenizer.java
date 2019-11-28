@@ -20,8 +20,14 @@ import java.util.Iterator;
 /**
  * @author Clinton Begin
  */
-// 因为该类实现了Iterator接口，
-// 所以该类的实例可以作为Iterator类型的参数传入其他方法，在其他方法中就可以调用该类的实例的hasNext 和 next方法
+
+/**
+ * 因为该类实现了Iterator接口，
+ * 所以该类的实例可以作为Iterator类型的参数传入其他方法，在其他方法中就可以调用该类的实例的hasNext 和 next方法
+ *
+ *  该类是一个Iterator接口，实现嵌套属性解析
+ *  例如：fullname=person[0].birthdate.year，将依次取得person[0], birthdate, year
+ */
 public class PropertyTokenizer implements Iterator<PropertyTokenizer> {
   private String name;
   private final String indexedName;
@@ -29,6 +35,8 @@ public class PropertyTokenizer implements Iterator<PropertyTokenizer> {
   private final String children;
 
   // 拆分fullname给当前类所有的成员变量赋值
+  // 例如：fullname=person[0].birthdate.year
+  // 得到 name="person" ， indexedName="person[0]" ， index=0， children="birthdate.year"
   public PropertyTokenizer(String fullname) {
     // 若fullname中有句号， 则句号前面为name，句号后面为children
     int delim = fullname.indexOf('.');
@@ -73,6 +81,7 @@ public class PropertyTokenizer implements Iterator<PropertyTokenizer> {
 
   @Override
   // 生成一个新的PropertyTokenizer对象，给该对象的成员变量赋值，返回该对象
+  // 例如：fullname=person[0].birthdate.year，将依次取得person[0], birthdate, year
   public PropertyTokenizer next() {
     return new PropertyTokenizer(children);
   }

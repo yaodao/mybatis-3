@@ -25,12 +25,16 @@ import org.apache.ibatis.reflection.Reflector;
  */
 public class MethodInvoker implements Invoker {
 
+  // method对象的返回值类型 或者 method对象第一个参数的类型
   private final Class<?> type;
   private final Method method;
 
+  // 构造一个MethodInvoker对象，给成员变量赋值
   public MethodInvoker(Method method) {
     this.method = method;
 
+    // 若method只有一个参数，则将参数的类型赋值给type，
+    // 否则将方法的返回值赋给type
     if (method.getParameterTypes().length == 1) {
       type = method.getParameterTypes()[0];
     } else {

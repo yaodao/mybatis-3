@@ -47,7 +47,7 @@ public class TypeParameterResolver {
    * @return The field type as {@link Type}. If it has type parameters in the declaration,<br>
    *         they will be resolved to the actual runtime {@link Type}s.
    */
-  // 解析field的的具体类型（将field的类型中的泛型解析为具体类型）
+  // 解析field的的具体类型（将field的类型中的泛型解析为具体类型，入参srcType是泛型解析的起点类）
   public static Type resolveFieldType(Field field, Type srcType) {
     Type fieldType = field.getGenericType();
     Class<?> declaringClass = field.getDeclaringClass();
@@ -60,7 +60,7 @@ public class TypeParameterResolver {
    */
 
   /**
-   * 解析入参method的返回值，将返回值中的泛型解析为具体类型
+   * 解析入参method的返回值，将返回值中的泛型解析为具体类型 （入参srcType是泛型解析的起点类）
    *
    * 举例：method表示 N select(N param); 时，返回值为 String，也就是N被解析为String（就是把方法的返回值的具体类型给解析出来了）
    * 此时，入参 srcType是Level1Mapper.class， method是Level0Mapper.class中的一个方法
@@ -76,7 +76,7 @@ public class TypeParameterResolver {
    * @return The parameter types of the method as an array of {@link Type}s. If they have type parameters in the declaration,<br>
    *         they will be resolved to the actual runtime {@link Type}s.
    */
-  // 解析method的参数的具体类型（将method的参数中的泛型解析为具体类型）
+  // 将method的参数中的泛型解析为具体类型 （入参srcType是泛型解析的起点类）
   public static Type[] resolveParamTypes(Method method, Type srcType) {
     Type[] paramTypes = method.getGenericParameterTypes();
     Class<?> declaringClass = method.getDeclaringClass();
